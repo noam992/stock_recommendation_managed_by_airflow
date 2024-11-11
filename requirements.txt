@@ -1,0 +1,12 @@
+apache-airflow==2.5.1
+yfinance
+pandas
+backtesting
+matplotlib
+boto3
+python-dotenv
+opencv-python
+numpy
+selenium
+pillow
+pytesseract
