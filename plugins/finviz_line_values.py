@@ -1,11 +1,29 @@
 import os
-import logging
-import numpy as np
 import cv2
+import logging
+import pandas as pd
+import numpy as np
 import pytesseract
 
 
+
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+
+
+def read_stocks_from_csv(filename: str) -> pd.DataFrame:
+    try:
+        stocks_df = pd.read_csv(filename)
+        logging.info(f"Successfully read data from {filename}")
+        return stocks_df
+    except Exception as e:
+        logging.error(f"Error reading CSV file {filename}: {str(e)}")
+        return pd.DataFrame()
+
+
+def save_to_csv(df, path_to_save):
+    logging.info("Saving data to CSV")
+    df.to_csv(path_to_save, index=False)
+    logging.info(f"Data saved to {path_to_save}")
 
 
 def detect_straight_line_by_color(ticker: str, img_path: str, color_rgb: tuple, line_frame: int, covered_line_rgb: tuple, detect_minLineLength: int):
@@ -592,106 +610,130 @@ def delete_all_the_images(image_folder: str, img_endings: list):
             os.remove(os.path.join(image_folder, file))
 
 
-def main(img_path: str, img, ticker_name: str, ticker_price: float):
+def extract_single_finviz_avg_line_values(ticker_name: str, ticker_price: float, pattern: str, original_img_path: str, image_folder: str, line_name: str, color_rgb: tuple, covered_line_rgb: tuple):
+    """
+    Extract and calculate average line values for a single stock
+    Returns the calculated average or NaN if no valid values found
+    """
+    try:
+        if pattern == 'ta_p_channel':
+            img_path, img = detect_straight_line_by_color(
+                ticker=ticker_name,
+                img_path=original_img_path,
+                color_rgb=color_rgb,
+                line_frame=60,
+                covered_line_rgb=covered_line_rgb,
+                detect_minLineLength=50
+            )
+        elif pattern in ['ta_p_channelup', 'ta_p_channeldown']:
+            img_path, img = detect_non_straight_line_by_color(
+                ticker=ticker_name,
+                img_path=original_img_path,
+                color_rgb=color_rgb,
+                line_frame=80,
+                covered_line_rgb=covered_line_rgb,
+                detect_minLineLength=50
+            )
 
-    base_graph_img_path = os.path.dirname(img_path)
-    
-    # img_path_2, img_2 = crop_graph_area_by_red_line(
-    #     ticker=ticker_name,
-    #     img_path=img_path_1,
-    #     image=img_1,
-    #     vertical_line_color=(0, 0, 255)
-    # )
+        # Process subsequent image transformations
+        img_path_2, img_2 = crop_graph_area(
+            ticker=ticker_name,
+            img_path=img_path,
+            image=img
+        )
 
-    img_path_2, img_2 = crop_graph_area(
-        ticker=ticker_name,
-        img_path=img_path,
-        image=img
-    )
-
-    img_path_3, img_3 = crop_black_area(
-        ticker=ticker_name,
-        img_path=img_path_2,
-        image=img_2
-    )
-        
-    img_path_4, img_4 = replace_yellow_with_white(
-        ticker=ticker_name,
-        img_path=img_path_3,
-        image=img_3,
-        yellow_rgb=(0, 255, 255),
-        white_rgb=(255, 255, 255)
-    )
-        
-    img_path_5, img_5 = paint_red_line_white_space(
-        ticker=ticker_name,
-        img_path=img_path_4,
-        image=img_4,
-        rad_rgb=(0, 0, 255)
-    )
-        
-    img_paths_6, imgs_6 = crop_img_using_red_line(
-        ticker=ticker_name,
-        img_path=img_path_5,
-        image=img_5,
-        rad_rgb=(0, 0, 255),
-        is_vertical_scan=True
-    )
-        
-    color_numbers = []
-    for img_path_6, img_6 in zip(img_paths_6, imgs_6):
-        number = get_numbers_from_image(img_path_6, img_6)
-        # Split the string into separate numbers if there are multiple
-        number_list = str(number).strip().split('\n')
+        img_path_3, img_3 = crop_black_area(
+            ticker=ticker_name,
+            img_path=img_path_2,
+            image=img_2
+        )
             
-        for num in number_list:
-            if not num.strip():  # Skip empty strings
-                continue
-            try:
-                cleaned_number = float(num.strip().replace(' ', '').replace(',', '.'))
-                price_up_bound = ticker_price * 7
-                price_down_bound = ticker_price / 7
-                if price_down_bound <= cleaned_number <= price_up_bound:
-                    color_numbers.append(cleaned_number)
-                    logging.info(f"Valid number found in image: {cleaned_number}")
-                else:
-                    logging.info(f"Number {cleaned_number} is outside valid price range [{price_down_bound}, {price_up_bound}]")
-            except ValueError:
-                logging.info(f"Invalid number found in image: {num}")
-                continue
+        img_path_4, img_4 = replace_yellow_with_white(
+            ticker=ticker_name,
+            img_path=img_path_3,
+            image=img_3,
+            yellow_rgb=(0, 255, 255),
+            white_rgb=(255, 255, 255)
+        )
+            
+        img_path_5, img_5 = paint_red_line_white_space(
+            ticker=ticker_name,
+            img_path=img_path_4,
+            image=img_4,
+            rad_rgb=(0, 0, 255)
+        )
+            
+        img_paths_6, imgs_6 = crop_img_using_red_line(
+            ticker=ticker_name,
+            img_path=img_path_5,
+            image=img_5,
+            rad_rgb=(0, 0, 255),
+            is_vertical_scan=True
+        )
+            
+        color_numbers = []
+        for img_path_6, img_6 in zip(img_paths_6, imgs_6):
+            number = get_numbers_from_image(img_path_6, img_6)
+            number_list = str(number).strip().split('\n')
                 
-    color_numbers
+            for num in number_list:
+                if not num.strip():
+                    continue
+                try:
+                    cleaned_number = float(num.strip().replace(' ', '').replace(',', '.'))
+                    price_up_bound = ticker_price * 7
+                    price_down_bound = ticker_price / 7
+                    if price_down_bound <= cleaned_number <= price_up_bound:
+                        color_numbers.append(cleaned_number)
+                        logging.info(f"Valid number found in image: {cleaned_number}")
+                    else:
+                        logging.info(f"Number {cleaned_number} is outside valid price range [{price_down_bound}, {price_up_bound}]")
+                except ValueError:
+                    logging.info(f"Invalid number found in image: {num}")
+                    continue
+
+        delete_all_the_images(image_folder, img_endings=['_chart.png'])
+
+        if len(color_numbers) > 0:
+            logging.info(f"{line_name}: {color_numbers}")
+            return sum(color_numbers) / len(color_numbers)
+        return float('nan')
+
+    except Exception as e:
+        logging.error(f"Error processing {ticker_name}: {str(e)}")
+        return float('nan')
+
+
+def main(filename: str, image_folder: str, line_name: str, color_rgb: tuple, covered_line_rgb: tuple):
+    """
+    Main function to process all stocks and update the CSV with line values
+    """
+    # Read the input CSV
+    stocks_df = read_stocks_from_csv(filename)
     
-    delete_all_the_images(base_graph_img_path, img_endings=['_chart.png'])
-    return color_numbers
+    # Process each stock
+    for index, row in stocks_df.iterrows():
+        ticker_name = row['Ticker']
+        logging.info(f"# Processing stock: {ticker_name} - {line_name}")
+
+        # Calculate average for current stock
+        average = extract_single_finviz_avg_line_values(
+            ticker_name=ticker_name,
+            ticker_price=float(row['Price']),
+            pattern=row['pattern'],
+            original_img_path=row['original_img_path'],
+            image_folder=image_folder,
+            line_name=line_name,
+            color_rgb=color_rgb,
+            covered_line_rgb=covered_line_rgb
+        )
+
+        # Store the average in the DataFrame
+        stocks_df.at[index, line_name] = average
+        
+    # Save the updated DataFrame
+    save_to_csv(stocks_df, filename)
 
 
 # if __name__ == "__main__":
-
-#     ticker_name = 'YBTC'
-#     ticker_price = 48.72
-
-#     graph_img_path = f'assets/ta_p_channelup_images/{ticker_name}_chart.png'
-#     covered_line_rgb = (0, 165, 255)
-#     found_blue_lines = (37, 111, 149)
-#     found_purple_lines = (142, 73, 156)
-#     screener_url = 'https://finviz.com/screener.ashx?v=110&s='
-#     pattern = 'ta_p_channel'
-#     page_size = 20
-#     objects = 0
-#     folder = 'assets'
-#     filename = f'{folder}/stocks_pattern_{pattern}.csv'
-#     color_rgb = (142, 73, 156) # (37, 111, 149)
-
-
-#     img_path, img = detect_non_straight_line_by_color(
-#         ticker=ticker_name,
-#         img_path=graph_img_path,
-#         color_rgb=color_rgb,
-#         line_frame=80,
-#         covered_line_rgb=covered_line_rgb,
-#         detect_minLineLength=50
-#     )
-
-#     result = main(img_path, img, ticker_name, ticker_price)
-#     print(result)
+#     main()

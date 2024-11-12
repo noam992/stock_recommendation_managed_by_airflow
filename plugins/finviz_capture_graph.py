@@ -2,6 +2,8 @@ import os
 import io
 import time
 import logging
+import pandas as pd
+from typing import List
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -31,6 +33,16 @@ html_tags = {
         'WebDriverWait': 5
     }
 }
+
+
+def read_stocks_from_csv(filename: str) -> pd.DataFrame:
+    try:
+        stocks_df = pd.read_csv(filename)
+        logging.info(f"Successfully read data from {filename}")
+        return stocks_df
+    except Exception as e:
+        logging.error(f"Error reading CSV file {filename}: {str(e)}")
+        return pd.DataFrame()
 
 
 def close_popup_privacy(driver):
@@ -111,7 +123,7 @@ def save_chart_img(driver, ticker, image_folder: str, scroll_amount: int):
         return False
 
 
-def scan_chart_image(ticker: str, image_folder: str):
+def capture_single_finviz_graph(ticker: str, image_folder: str):
     scroll_amount = 400
     chrome_zoom = 1.75
 
@@ -181,15 +193,25 @@ def scan_chart_image(ticker: str, image_folder: str):
             xvfb_process.wait()
 
 
-def main(image_folder: str, ticker_name: str):
+def main(filename: str, image_folder: str):
     try:
+
         if not os.path.exists(image_folder):
             os.makedirs(image_folder)
 
-        graph_img_path = scan_chart_image(ticker=ticker_name, image_folder=image_folder)
-        if not graph_img_path:
-            raise AirflowException(f"Failed to capture graph for {ticker_name}")
-        return graph_img_path
+        stocks_df = read_stocks_from_csv(filename)
+        stocks_df['original_img_path'] = None
+
+        for index, row in stocks_df.iterrows():
+            ticker_name = row['Ticker']
+            graph_img_path = capture_single_finviz_graph(ticker=ticker_name, image_folder=image_folder)
+            if not graph_img_path:
+                raise AirflowException(f"Failed to capture graph for {ticker_name}")
+            # Store the image path in the DataFrame
+            stocks_df.at[index, 'original_img_path'] = graph_img_path
+
+        # Save the updated DataFrame back to the CSV file
+        stocks_df.to_csv(filename, index=False)
         
     except Exception as e:
         error_msg = f"Failed to process finviz capture for {ticker_name}: {str(e)}"

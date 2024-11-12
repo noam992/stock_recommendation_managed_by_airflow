@@ -2,9 +2,25 @@ import logging
 from datetime import datetime, timedelta
 import yfinance as yf
 from backtesting import Backtest, Strategy
+import pandas as pd
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
 
 
-logger = logging.getLogger(__name__)
+def read_stocks_from_csv(filename: str) -> pd.DataFrame:
+    try:
+        stocks_df = pd.read_csv(filename)
+        logging.info(f"Successfully read data from {filename}")
+        return stocks_df
+    except Exception as e:
+        logging.error(f"Error reading CSV file {filename}: {str(e)}")
+        return pd.DataFrame()
+    
+
+def save_to_csv(df, filename):
+    logging.info("Saving data to CSV")
+    df.to_csv(filename, index=False)
+    logging.info(f"Data saved to {filename}")
 
 
 def get_stock_data(symbol, start_date, end_date):
@@ -52,9 +68,9 @@ def backtest_strategy(symbol, start_date, end_date):
     return results, data, trades, equity_curve
 
 
-def main(symbol, start_date, end_date):
+def calculate_single_backtest_strategy(symbol, start_date, end_date):
     start_time = datetime.now()
-    logger.info(f"Starting backtest analysis for {symbol} at {start_time}")
+    logging.info(f"Starting backtest analysis for {symbol} at {start_time}")
 
     recommendation = None
     try:
@@ -82,13 +98,44 @@ def main(symbol, start_date, end_date):
         }
         
     except ValueError as e:
-        logger.error(f"Error processing {symbol}: {str(e)}")
+        logging.error(f"Error processing {symbol}: {str(e)}")
 
     end_time = datetime.now()
     duration = end_time - start_time
-    logger.info(f"Completed backtest analysis for {symbol} at {end_time}. Duration: {duration}")
+    logging.info(f"Completed backtest analysis for {symbol} at {end_time}. Duration: {duration}")
     
     return recommendation
+
+
+def main(filename: str):
+
+    end_date = datetime.now()
+    start_date = end_date - timedelta(days=365)
+
+    stocks_df = read_stocks_from_csv(filename)
+    stocks_df['return_%'] = float('nan')
+    stocks_df['sharpe_ratio'] = float('nan')
+    stocks_df['max_drawdown_%'] = float('nan')
+    stocks_df['sma_short_20'] = float('nan')
+    stocks_df['sma_long_50'] = float('nan')
+    stocks_df['rsi_14'] = float('nan')
+
+    for index, row in stocks_df.iterrows():
+        symbol = row['Ticker']
+        end_date = datetime.now()
+        recommendation = calculate_single_backtest_strategy(symbol, start_date, end_date)
+        
+        # Update stocks_df with recommendation values if available
+        if recommendation:
+            stocks_df.at[index, 'return_%'] = recommendation['return']
+            stocks_df.at[index, 'sharpe_ratio'] = recommendation['sharpe_ratio']
+            stocks_df.at[index, 'max_drawdown_%'] = recommendation['max_drawdown']
+            stocks_df.at[index, 'sma_short_20'] = recommendation['sma_short_20']
+            stocks_df.at[index, 'sma_long_50'] = recommendation['sma_long_50']
+            stocks_df.at[index, 'rsi_14'] = recommendation['rsi_14']
+    
+    # Save updated dataframe to CSV
+    save_to_csv(stocks_df, filename)
 
 
 # if __name__ == "__main__":
@@ -96,5 +143,5 @@ def main(symbol, start_date, end_date):
 #     start_date = end_date - timedelta(days=365)
 #     symbol = 'NVDA'
     
-#     recommendation = main(symbol, start_date, end_date)
-#     print(recommendation)
+#     recommendation = calculate_single_backtest_strategy(symbol, start_date, end_date)
+#     print('Symbol:', recommendation['symbol'])
