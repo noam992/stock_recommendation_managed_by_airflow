@@ -3,6 +3,7 @@ import requests
 from bs4 import BeautifulSoup
 import logging
 import os
+from typing import List
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
 
@@ -117,7 +118,7 @@ def get_total_pages(screener_url, pattern):
     return 1  # Return 1 if no pagination found
 
 
-def main(screener_url, pattern, page_size, objects, filename):
+def get_stocks_list_by_pattern(screener_url, pattern, page_size, objects, filename):
 
     pattern_df = pd.DataFrame()
     tmp_pattern_df = pd.DataFrame()
@@ -138,6 +139,38 @@ def main(screener_url, pattern, page_size, objects, filename):
     # save_to_csv(pattern_df, filename)
 
     return pattern_df
+
+
+def main(patterns: List[str], market_cap: str, manual_tickers: List[str], filename: str):
+
+    screener_url = 'https://finviz.com/screener.ashx?v=110&s='
+    page_size = 20
+    objects = 0
+    
+    # Initialize an empty DataFrame to store all results
+    combined_df = pd.DataFrame()
+    
+    # Get stocks for each pattern
+    for pattern in patterns:
+        stocks_df_full = get_stocks_list_by_pattern(screener_url, pattern, page_size, objects, filename)
+        stocks_df = filter_by_market_cap(stocks_df_full, market_cap) # large: cap stocks >= 10B, medium: cap stocks >= 2B and < 10B, small: cap stocks < 2B
+        # Add pattern column
+        stocks_df['pattern'] = pattern
+        # Concatenate while dropping duplicates based on Ticker
+        combined_df = pd.concat([combined_df, stocks_df]).drop_duplicates(subset=['Ticker'], keep='first')
+    
+    # Add manual tickers if they don't exist
+    manual_df = pd.DataFrame({'Ticker': manual_tickers})
+    manual_df['pattern'] = 'manual'
+    
+    # Only add manual tickers that don't already exist
+    manual_df = manual_df[~manual_df['Ticker'].isin(combined_df['Ticker'])]
+    
+    # Combine with manual tickers
+    final_df = pd.concat([combined_df, manual_df], ignore_index=True)
+    
+    save_to_csv(final_df, filename)
+
 
 
 # if __name__ == "__main__":
