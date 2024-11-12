@@ -12,10 +12,10 @@ logger = logging.getLogger(__name__)
 
 # Add the parent directory to sys.path to import the main function
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
-from plugins.finviz_pattern_list import main as create_stock_list, filter_by_market_cap
+from plugins.finviz_pattern_list import main as create_stock_list
 from plugins.finviz_capture_graph import main as capture_finviz_graphs, capture_single_finviz_graph
-from plugins.finviz_line_values import main as extract_finviz_line_values, extract_single_finviz_avg_line_values, detect_straight_line_by_color, detect_non_straight_line_by_color
-from plugins.metrics import main as calculate_metrics, calculate_single_stock_metrics, channel_range, ratio_of_current_price_to_channel_range
+from plugins.finviz_line_values import main as extract_finviz_line_values, extract_single_finviz_avg_line_values
+from plugins.metrics import main as calculate_metrics, calculate_single_stock_metrics
 from plugins.backtesting_analysis import main as calculate_backtest_strategy, calculate_single_backtest_strategy
 
 
