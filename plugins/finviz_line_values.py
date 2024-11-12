@@ -230,6 +230,117 @@ def detect_non_straight_line_by_color(ticker: str, img_path: str, color_rgb: tup
         return None
 
 
+def detect_rising_top_right_falling_bottom_right_line_by_color(ticker: str, img_path: str, color_rgb: tuple, line_frame: int, covered_line_rgb: tuple, detect_minLineLength: int):
+    """
+    Process image to detect the first line of specified color:
+    - For rising lines: scan from top-right
+    - For falling lines: scan from bottom-right
+    """
+    logging.info(f"Starting save image based on first line")
+    try:
+        # Read the image
+        img = cv2.imread(img_path)
+        
+        # Convert BGR to HSV
+        hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+        
+        # Convert RGB color to HSV
+        rgb_color = np.uint8([[color_rgb]])
+        hsv_color = cv2.cvtColor(rgb_color, cv2.COLOR_RGB2HSV)
+        
+        # Get the HSV values
+        hue = hsv_color[0][0][0]
+        
+        # Define range of the color in HSV
+        lower_bound = np.array([max(0, hue - 10), 100, 100])
+        upper_bound = np.array([min(180, hue + 10), 255, 255])
+        
+        # Threshold the HSV image to get only the specified color
+        mask = cv2.inRange(hsv, lower_bound, upper_bound)
+        
+        # Bitwise-AND mask and original image
+        color_only = cv2.bitwise_and(img, img, mask=mask)
+        
+        # Convert to grayscale
+        gray = cv2.cvtColor(color_only, cv2.COLOR_BGR2GRAY)
+        
+        # Apply edge detection
+        edges = cv2.Canny(gray, 50, 150, apertureSize=3)
+        
+        # Detect lines using HoughLinesP
+        lines = cv2.HoughLinesP(edges, 1, np.pi/180, threshold=40, minLineLength=detect_minLineLength, maxLineGap=20)
+        
+        # Create a blank mask to draw the shape
+        shape_mask = np.zeros(img.shape[:2], dtype=np.uint8)
+        height, width = img.shape[:2]
+        
+        if lines is not None:
+            # Convert lines to a list of tuples with additional info
+            processed_lines = []
+            for line in lines:
+                x1, y1, x2, y2 = line[0]
+                # Ensure x2 is the rightmost point
+                if x1 > x2:
+                    x1, x2 = x2, x1
+                    y1, y2 = y2, y1
+                
+                # Calculate slope
+                slope = (y2 - y1) / (x2 - x1) if x2 != x1 else float('inf')
+                
+                # Only consider lines that reach near the right edge
+                if x2 > width * 0.7:
+                    processed_lines.append((x1, y1, x2, y2, slope))
+            
+            selected_line = None
+            if processed_lines:
+                # Sort lines by x2 coordinate (rightmost point) in descending order
+                processed_lines.sort(key=lambda l: l[2], reverse=True)
+                
+                # Separate rising and falling lines
+                rising_lines = [l for l in processed_lines if l[4] < 0]  # negative slope = rising line
+                falling_lines = [l for l in processed_lines if l[4] > 0]  # positive slope = falling line
+                
+                if rising_lines:
+                    # For rising lines, find the one closest to top-right
+                    selected_line = min(rising_lines, key=lambda l: l[3])  # minimize y2
+                elif falling_lines:
+                    # For falling lines, find the one closest to bottom-right
+                    selected_line = max(falling_lines, key=lambda l: l[3])  # maximize y2
+            
+            if selected_line:
+                x1, y1, x2, y2, _ = selected_line
+                # Draw the detected line
+                cv2.line(img, (int(x1), int(y1)), (int(x2), int(y2)), covered_line_rgb, 2)
+                
+                vertical_line_color = (0, 0, 255)
+                # Add vertical marker at the end of line
+                cv2.line(img, (int(x2), int(y2)-20), (int(x2), int(y2)+20), vertical_line_color, 2)
+                
+                # Create mask for horizontal area around the line
+                y_center = int(y2)
+                y_start = max(0, y_center - line_frame)
+                y_end = min(height, y_center + line_frame)
+                
+                # Create polygon points for full width horizontal strip
+                pts = np.array([[0, y_start], [width, y_start], 
+                              [width, y_end], [0, y_end]], np.int32)
+                cv2.fillPoly(shape_mask, [pts], 255)
+                
+                # Apply the shape mask to the original image
+                img = cv2.bitwise_and(img, img, mask=shape_mask)
+
+        # Save the image with the detected line
+        img_path = img_path.replace('.png', '_focused_lines.png')
+        cv2.imwrite(img_path, img)
+
+        logging.info(f"Successfully saved image based on first line.")
+        return img_path, img
+    
+    except Exception as e:
+        logging.error(f"Failed to save image based on first line. Error: {str(e)}")
+        return None
+
+
 def get_chart_lines(img_path: str, color_rgb: tuple):
     # Read the image
     img = cv2.imread(img_path)
@@ -634,6 +745,15 @@ def extract_single_finviz_avg_line_values(ticker_name: str, ticker_price: float,
                 covered_line_rgb=covered_line_rgb,
                 detect_minLineLength=50
             )
+        else: # manual
+            img_path, img = detect_rising_top_right_falling_bottom_right_line_by_color(
+                ticker=ticker_name,
+                img_path=original_img_path,
+                color_rgb=color_rgb,
+                line_frame=80,
+                covered_line_rgb=covered_line_rgb,
+                detect_minLineLength=20
+            )
 
         # Process subsequent image transformations
         img_path_2, img_2 = crop_graph_area(
@@ -736,4 +856,13 @@ def main(filename: str, image_folder: str, line_name: str, color_rgb: tuple, cov
 
 
 # if __name__ == "__main__":
-#     main()
+#     ticker_name = 'SHEL'
+#     ticker_price = 65.11
+#     pattern = 'manual'
+#     original_img_path = 'assets/images/SHEL_chart.png'
+#     image_folder = 'assets/images'
+#     line_name = 'support'
+#     color_rgb = (37, 111, 149)
+#     covered_line_rgb = (0, 165, 255)
+    
+#     extract_single_finviz_avg_line_values(ticker_name, ticker_price, pattern, original_img_path, image_folder, line_name, color_rgb, covered_line_rgb)

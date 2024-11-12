@@ -168,8 +168,9 @@ def main(patterns: List[str], market_cap: str, manual_tickers: List[str], filena
     
     # Combine with manual tickers
     final_df = pd.concat([combined_df, manual_df], ignore_index=True)
+    ticker_pattern_df = final_df[['Ticker', 'pattern']]
     
-    save_to_csv(final_df, filename)
+    save_to_csv(ticker_pattern_df, filename)
 
 
 

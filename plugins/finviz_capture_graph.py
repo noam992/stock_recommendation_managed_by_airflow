@@ -31,6 +31,10 @@ html_tags = {
         'tag': 'canvas',
         'sleep_before': 5,
         'WebDriverWait': 5
+    },
+    'stock_data_tag': {
+        'tagDataTestID': 'div[data-testid="quote-data-content"]',
+        'WebDriverWait': 1
     }
 }
 
@@ -123,6 +127,38 @@ def save_chart_img(driver, ticker, image_folder: str, scroll_amount: int):
         return False
 
 
+def get_stock_info(driver) -> pd.DataFrame:
+    logging.info("Extracting stock information from page")
+    try:
+        time.sleep(2)  # Small delay to ensure data is loaded
+        stock_data_div = WebDriverWait(driver, html_tags['stock_data_tag']['WebDriverWait']).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, html_tags['stock_data_tag']['tagDataTestID']))
+        )
+        
+        # Create a dictionary to store the data
+        stock_info = {}
+        
+        # Find all table cells
+        cells = stock_data_div.find_elements(By.TAG_NAME, "td")
+        
+        # Process cells in pairs (label and value)
+        for i in range(0, len(cells), 2):
+            if i + 1 < len(cells):
+                label = cells[i].text.strip()
+                value = cells[i + 1].text.strip()
+                stock_info[label] = value
+        
+        # Create DataFrame with specific columns
+        df = pd.DataFrame([stock_info])
+        
+        logging.info("Successfully extracted stock information")
+        return df
+    
+    except Exception as e:
+        logging.error(f"Failed to extract stock information. Error: {str(e)}")
+        return pd.DataFrame()
+
+
 def capture_single_finviz_graph(ticker: str, image_folder: str):
     scroll_amount = 400
     chrome_zoom = 1.75
@@ -177,8 +213,11 @@ def capture_single_finviz_graph(ticker: str, image_folder: str):
         if not chart_img_path:
             raise AirflowException(f"Failed to save chart image for {ticker}")
         
+        # Get stock information
+        stock_info_df = get_stock_info(driver)
+        
         logging.info(f"Chart image saved for {ticker} at {chart_img_path}")
-        return chart_img_path
+        return chart_img_path, stock_info_df
 
     except Exception as e:
         error_msg = f"Error processing chart for {ticker}: {str(e)}"
@@ -201,14 +240,27 @@ def main(filename: str, image_folder: str):
 
         stocks_df = read_stocks_from_csv(filename)
         stocks_df['original_img_path'] = None
+        
+        # Add new columns
+        new_columns = ['Market Cap', 'Volume', 'Avg Volume', 'Rel Volume', 'Prev Close', 'Price', 'Change']
+        for col in new_columns:
+            stocks_df[col] = None
 
         for index, row in stocks_df.iterrows():
             ticker_name = row['Ticker']
-            graph_img_path = capture_single_finviz_graph(ticker=ticker_name, image_folder=image_folder)
+            graph_img_path, stock_info_df = capture_single_finviz_graph(ticker=ticker_name, image_folder=image_folder)
+            
             if not graph_img_path:
                 raise AirflowException(f"Failed to capture graph for {ticker_name}")
-            # Store the image path in the DataFrame
+                
+            # Store the image path and stock info in the DataFrame
             stocks_df.at[index, 'original_img_path'] = graph_img_path
+            
+            # Update stock information columns
+            if not stock_info_df.empty:
+                for col in new_columns:
+                    if col in stock_info_df.columns:
+                        stocks_df.at[index, col] = stock_info_df.iloc[0][col]
 
         # Save the updated DataFrame back to the CSV file
         stocks_df.to_csv(filename, index=False)
@@ -220,5 +272,5 @@ def main(filename: str, image_folder: str):
 
 
 # if __name__ == "__main__":
-#     result = main(image_folder = 'assets/ta_p_channelup_images', ticker_name = 'YBTC')
+#     result = capture_single_finviz_graph(image_folder = 'assets/images', ticker_name = 'BP')
 #     print(result)

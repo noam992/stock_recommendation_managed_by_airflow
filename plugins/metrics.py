@@ -38,25 +38,39 @@ def ratio_of_current_price_to_channel_range(current_price: float, lower_bound: f
         return 0
 
 
-def calculate_single_stock_metrics(ticker_name: str, ticker_price: float, support: float, resistance: float):
+def ratio_of_current_price_to_support(current_price: float, support: float) -> float:
+    if pd.notna(support) and support != 0:
+        return ((current_price - support) / support)
+    return float('nan')
 
-        if pd.notna(support) and pd.notna(resistance) and resistance >= support:
+
+def calculate_single_stock_metrics(ticker_name: str, ticker_price: float, support: float, resistance: float):
+    channel_range_value = 0
+    price_ratio = 0
+    lower_bound_distance = float('nan')
+    
+    if pd.notna(support):
+        lower_bound_distance = ratio_of_current_price_to_support(ticker_price, support)
+        
+        if pd.notna(resistance) and resistance >= support:
             try:
                 channel_range_value = channel_range(support, resistance)
                 price_ratio = ratio_of_current_price_to_channel_range(ticker_price, support, resistance)
-                return channel_range_value, price_ratio
             except ValueError as e:
-                logging.error(f"Error calculating metrics for {ticker_name}: {str(e)}")
-                return 0, 0
+                logging.error(f"Error calculating channel metrics for {ticker_name}: {str(e)}")
         else:
-            logging.warning(f"Skipping {ticker_name}: Invalid support/resistance values or resistance < support")
-            return 0, 0
+            logging.warning(f"Skipping channel calculations for {ticker_name}: Invalid resistance value or resistance < support")
+    else:
+        logging.warning(f"Skipping {ticker_name}: Invalid support value")
+    
+    return channel_range_value, price_ratio, lower_bound_distance
 
 
 def main(filename: str):
     stocks_df = read_stocks_from_csv(filename)
     stocks_df['channel_range'] = float('nan')
     stocks_df['current_price_ratio_channel'] = float('nan')
+    stocks_df['current_price_ratio_support'] = float('nan')
 
     for index, row in stocks_df.iterrows():
         logging.info(f"# Processing stock: {row['Ticker']}")
@@ -66,10 +80,11 @@ def main(filename: str):
         support = row['support']
         resistance = row['resistance']
 
-        channel_range_value, price_ratio = calculate_single_stock_metrics(ticker_name, ticker_price, support, resistance)
+        channel_range_value, price_ratio, lower_bound_distance = calculate_single_stock_metrics(ticker_name, ticker_price, support, resistance)
 
         stocks_df.at[index, 'channel_range'] = channel_range_value
         stocks_df.at[index, 'current_price_ratio_channel'] = price_ratio
-        logging.info(f"Channel Range: {channel_range_value}, Price Ratio: {price_ratio}")
+        stocks_df.at[index, 'current_price_ratio_support'] = lower_bound_distance
+        logging.info(f"Channel Range: {channel_range_value}, Price Ratio: {price_ratio}, Distance to Support: {lower_bound_distance:.2f}%")
     
     save_to_csv(stocks_df, filename)
