@@ -50,7 +50,7 @@ def send_email(filename, sender_email, sender_password, email_recipients):
 # Define the DAG
 with DAG('stock_recommendation',
     description='Stock recommendation DAG using FinViz data',
-    schedule_interval=None,  # No schedule - manual trigger only
+    schedule_interval='0 16 * * *',  # Run at 4 PM daily (16:00)
     start_date=datetime(2024, 1, 1),
     catchup=False) as dag:
 
@@ -59,9 +59,9 @@ with DAG('stock_recommendation',
         task_id='create_stock_list_task',
         python_callable=create_stock_list,
         op_kwargs={
-            'patterns': ['ta_p_channel', 'ta_p_channelup', 'ta_p_channeldown'],
+            'patterns': ['ta_p_channel'], # , 'ta_p_channelup', 'ta_p_channeldown'],
             'market_cap': 'large',
-            'manual_tickers': ['AAPL', 'GOOGL', 'MSFT', 'AMZN', 'TSLA', 'NVDA', 'JPM', 'V', 'JNJ', 'WMT', 'PG', 'DIS', 'NFLX', 'ADBE', 'SPY', 'QQQ', 'XOM', 'TLT', 'GLD', 'META', 'AMD', 'COIN', 'MARA', 'MU', 'SBUX', 'DVN', 'PLTR'],
+            'manual_tickers': ['AMZN'], # , 'GOOGL', 'MSFT', 'AMZN', 'TSLA', 'NVDA', 'JPM', 'V', 'JNJ', 'WMT', 'PG', 'DIS', 'NFLX', 'ADBE', 'SPY', 'QQQ', 'XOM', 'TLT', 'GLD', 'META', 'AMD', 'COIN', 'MARA', 'MU', 'SBUX', 'DVN', 'PLTR'],
             'filename': 'assets/stocks_list.csv'
         }
     )
@@ -121,7 +121,7 @@ with DAG('stock_recommendation',
         op_kwargs={
             'filename': 'assets/stocks_list.csv',
             'sender_email': 'safe.trade.byai@gmail.com',
-            'sender_password': '<insert password>',
+            'sender_password': 'qrix vafb obge ezbu',
             'email_recipients': ['noam.konja@gmail.com']
         }
     )

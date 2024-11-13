@@ -72,6 +72,7 @@ def detect_straight_line_by_color(ticker: str, img_path: str, color_rgb: tuple, 
         height = img.shape[0]
         width = img.shape[1]
         
+        lines_found = False
         if lines is not None:
             for line in lines:
                 x1, y1, x2, y2 = line[0]
@@ -79,6 +80,7 @@ def detect_straight_line_by_color(ticker: str, img_path: str, color_rgb: tuple, 
                 angle = np.abs(np.degrees(np.arctan2(y2 - y1, x2 - x1)))
                 # Only process horizontal lines (180 degrees with some tolerance)
                 if abs(angle - 180) < 5 or angle < 5:
+                    lines_found = True
                     # Draw horizontal lines across image at y position of detected line
                     # Add 50 pixels up and down from line position
                     y_start = max(0, y1 - line_frame)
@@ -117,13 +119,13 @@ def detect_straight_line_by_color(ticker: str, img_path: str, color_rgb: tuple, 
         if lines_counter != 1:
             text = f"Found {lines_counter}. expected to find 1"
             logging.info(text)
-            return [], []
+            return [], [], False
         
-        return img_path, img
+        return img_path, img, lines_found
     
     except Exception as e:
         logging.error(f"Failed to save image based on lines. Error: {str(e)}")
-        return None
+        return None, None, False
 
 
 def detect_non_straight_line_by_color(ticker: str, img_path: str, color_rgb: tuple, line_frame: int, covered_line_rgb: tuple, detect_minLineLength: int):
@@ -179,6 +181,7 @@ def detect_non_straight_line_by_color(ticker: str, img_path: str, color_rgb: tup
         rightmost_line_x1 = 0
         rightmost_line_y1 = 0
         
+        lines_found = False
         if lines is not None:
             for line in lines:
                 x1, y1, x2, y2 = line[0]
@@ -186,6 +189,7 @@ def detect_non_straight_line_by_color(ticker: str, img_path: str, color_rgb: tup
                 angle = np.abs(np.degrees(np.arctan2(y2 - y1, x2 - x1)))
                 # Only process non-straight lines (exclude horizontal and vertical)
                 if not (abs(angle - 180) < 5 or angle < 5 or abs(angle - 90) < 5):
+                    lines_found = True
                     cv2.line(img, (x1, y1), (x2, y2), covered_line_rgb, 2)
                     
                     vertical_line_color = (0, 0, 255)
@@ -223,11 +227,11 @@ def detect_non_straight_line_by_color(ticker: str, img_path: str, color_rgb: tup
         cv2.imwrite(img_path, img)
 
         logging.info(f"Successfully saved image based on non-straight lines.")
-        return img_path, img
+        return img_path, img, lines_found
     
     except Exception as e:
         logging.error(f"Failed to save image based on lines. Error: {str(e)}")
-        return None
+        return None, None, False
 
 
 def detect_rising_top_right_falling_bottom_right_line_by_color(ticker: str, img_path: str, color_rgb: tuple, line_frame: int, covered_line_rgb: tuple, detect_minLineLength: int):
@@ -274,6 +278,7 @@ def detect_rising_top_right_falling_bottom_right_line_by_color(ticker: str, img_
         shape_mask = np.zeros(img.shape[:2], dtype=np.uint8)
         height, width = img.shape[:2]
         
+        lines_found = False
         if lines is not None:
             # Convert lines to a list of tuples with additional info
             processed_lines = []
@@ -308,6 +313,7 @@ def detect_rising_top_right_falling_bottom_right_line_by_color(ticker: str, img_
                     selected_line = max(falling_lines, key=lambda l: l[3])  # maximize y2
             
             if selected_line:
+                lines_found = True
                 x1, y1, x2, y2, _ = selected_line
                 # Draw the detected line
                 cv2.line(img, (int(x1), int(y1)), (int(x2), int(y2)), covered_line_rgb, 2)
@@ -334,11 +340,11 @@ def detect_rising_top_right_falling_bottom_right_line_by_color(ticker: str, img_
         cv2.imwrite(img_path, img)
 
         logging.info(f"Successfully saved image based on first line.")
-        return img_path, img
+        return img_path, img, lines_found
     
     except Exception as e:
         logging.error(f"Failed to save image based on first line. Error: {str(e)}")
-        return None
+        return None, None, False
 
 
 def get_chart_lines(img_path: str, color_rgb: tuple):
@@ -728,7 +734,7 @@ def extract_single_finviz_avg_line_values(ticker_name: str, ticker_price: float,
     """
     try:
         if pattern == 'ta_p_channel':
-            img_path, img = detect_straight_line_by_color(
+            img_path, img, lines_found = detect_straight_line_by_color(
                 ticker=ticker_name,
                 img_path=original_img_path,
                 color_rgb=color_rgb,
@@ -737,7 +743,7 @@ def extract_single_finviz_avg_line_values(ticker_name: str, ticker_price: float,
                 detect_minLineLength=50
             )
         elif pattern in ['ta_p_channelup', 'ta_p_channeldown']:
-            img_path, img = detect_non_straight_line_by_color(
+            img_path, img, lines_found = detect_non_straight_line_by_color(
                 ticker=ticker_name,
                 img_path=original_img_path,
                 color_rgb=color_rgb,
@@ -746,7 +752,7 @@ def extract_single_finviz_avg_line_values(ticker_name: str, ticker_price: float,
                 detect_minLineLength=50
             )
         else: # manual
-            img_path, img = detect_rising_top_right_falling_bottom_right_line_by_color(
+            img_path, img, lines_found = detect_rising_top_right_falling_bottom_right_line_by_color(
                 ticker=ticker_name,
                 img_path=original_img_path,
                 color_rgb=color_rgb,
@@ -754,6 +760,10 @@ def extract_single_finviz_avg_line_values(ticker_name: str, ticker_price: float,
                 covered_line_rgb=covered_line_rgb,
                 detect_minLineLength=20
             )
+
+        if not lines_found:
+            logging.info(f"No valid lines detected for {ticker_name} using pattern {pattern}")
+            return float('nan')
 
         # Process subsequent image transformations
         img_path_2, img_2 = crop_graph_area(
@@ -856,10 +866,10 @@ def main(filename: str, image_folder: str, line_name: str, color_rgb: tuple, cov
 
 
 # if __name__ == "__main__":
-#     ticker_name = 'SHEL'
-#     ticker_price = 65.11
+#     ticker_name = 'AMZN'
+#     ticker_price = 208.91
 #     pattern = 'manual'
-#     original_img_path = 'assets/images/SHEL_chart.png'
+#     original_img_path = 'assets/images/AMZN_chart.png'
 #     image_folder = 'assets/images'
 #     line_name = 'support'
 #     color_rgb = (37, 111, 149)
