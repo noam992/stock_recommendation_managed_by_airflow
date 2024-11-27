@@ -147,8 +147,8 @@ def main(patterns: List[str], market_cap: str, manual_tickers: List[str], filena
     page_size = 20
     objects = 0
     
-    # Initialize an empty DataFrame to store all results
-    combined_df = pd.DataFrame()
+    # Initialize an empty DataFrame with the required columns
+    combined_df = pd.DataFrame(columns=['Ticker', 'pattern'])
     
     # Get stocks for each pattern
     for pattern in patterns:
@@ -163,8 +163,9 @@ def main(patterns: List[str], market_cap: str, manual_tickers: List[str], filena
     manual_df = pd.DataFrame({'Ticker': manual_tickers})
     manual_df['pattern'] = 'manual'
     
-    # Only add manual tickers that don't already exist
-    manual_df = manual_df[~manual_df['Ticker'].isin(combined_df['Ticker'])]
+    # Only add manual tickers that don't already exist if combined_df is not empty
+    if not combined_df.empty:
+        manual_df = manual_df[~manual_df['Ticker'].isin(combined_df['Ticker'])]
     
     # Combine with manual tickers
     final_df = pd.concat([combined_df, manual_df], ignore_index=True)

@@ -94,7 +94,6 @@ def save_chart_img(driver, ticker, image_folder: str, scroll_amount: int):
     logging.info(f"Processing chart image for {ticker}")
     try:
         time.sleep(html_tags['chart_tag']['sleep_before'])
-        # Find the first canvas element within the chart
         canvas = WebDriverWait(driver, html_tags['chart_tag']['WebDriverWait']).until(
             EC.presence_of_element_located((By.TAG_NAME, html_tags['chart_tag']['tag']))
         )
@@ -102,15 +101,13 @@ def save_chart_img(driver, ticker, image_folder: str, scroll_amount: int):
         screenshot = driver.get_screenshot_as_png()
         screenshot = Image.open(io.BytesIO(screenshot))
 
-        # Get the device pixel ratio to account for zoom
         device_pixel_ratio = driver.execute_script('return window.devicePixelRatio;')
 
         canvas_location = canvas.location
         canvas_size = canvas.size
 
-        # Adjust coordinates for zoom level and scroll position
         left = int(canvas_location['x'] * device_pixel_ratio)
-        top = int((canvas_location['y'] - scroll_amount) * device_pixel_ratio)  # Adjust for scroll
+        top = int((canvas_location['y'] - scroll_amount) * device_pixel_ratio)
         right = int((canvas_location['x'] + canvas_size['width']) * device_pixel_ratio)
         bottom = int((canvas_location['y'] - scroll_amount + canvas_size['height']) * device_pixel_ratio)
 
@@ -160,7 +157,7 @@ def get_stock_info(driver) -> pd.DataFrame:
 
 
 def capture_single_finviz_graph(ticker: str, image_folder: str):
-    scroll_amount = 400
+    scroll_amount = 500
     chrome_zoom = 1.75
 
     logging.info(f"Starting chart scan for {ticker}")
@@ -242,7 +239,7 @@ def main(filename: str, image_folder: str):
         stocks_df['original_img_path'] = None
         
         # Add new columns
-        new_columns = ['Market Cap', 'Volume', 'Avg Volume', 'Rel Volume', 'Prev Close', 'Price', 'Change']
+        new_columns = ['Market Cap', 'Volume', 'Earnings', 'Avg Volume', 'Rel Volume', 'Prev Close', 'Price', 'Change']
         for col in new_columns:
             stocks_df[col] = None
 
