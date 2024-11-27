@@ -19,15 +19,29 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from plugins.finviz_pattern_list import main as create_stock_list
 from plugins.finviz_capture_graph import main as capture_finviz_graphs, capture_single_finviz_graph
 from plugins.finviz_line_values import main as extract_finviz_line_values, extract_single_finviz_avg_line_values
-from plugins.metrics import main as calculate_metrics, calculate_single_stock_metrics
+from plugins.metrics import main as calculate_metrics, calculate_single_stock_metrics, filter_to_relevant_stocks
 from plugins.backtesting_analysis import main as calculate_backtest_strategy, calculate_single_backtest_strategy
+from plugins.graphs import main as create_graphs
+
+
+def clean_directories(directories):
+    for directory in directories:
+        if os.path.exists(directory):
+            for filename in os.listdir(directory):
+                file_path = os.path.join(directory, filename)
+                try:
+                    if os.path.isfile(file_path):
+                        os.unlink(file_path)
+                        logger.info(f"Deleted file: {file_path}")
+                except Exception as e:
+                    logger.error(f"Error deleting {file_path}: {e}")
 
 
 def send_email(filename, sender_email, sender_password, email_recipients):
     msg = MIMEMultipart()
     msg['From'] = sender_email
     msg['To'] = ', '.join(email_recipients)
-    msg['Subject'] = Header('Stock List Report', 'utf-8')
+    msg['Subject'] = Header(f'Stock List Report - {datetime.now().strftime("%Y-%m-%d")}', 'utf-8')
 
     # Attach the CSV file
     with open(filename, 'rb') as f:
@@ -35,13 +49,24 @@ def send_email(filename, sender_email, sender_password, email_recipients):
         attachment.add_header('Content-Disposition', 'attachment', filename='stocks_list.csv')
         msg.attach(attachment)
 
+    # Attach all images from the output folder
+    output_folder = 'assets/output'
+    for image_file in os.listdir(output_folder):
+        if image_file.lower().endswith(('.png', '.jpg', '.jpeg')):
+            image_path = os.path.join(output_folder, image_file)
+            with open(image_path, 'rb') as f:
+                img_attachment = MIMEText(f.read(), 'base64', 'utf-8')
+                img_attachment.add_header('Content-Disposition', 'attachment', filename=image_file)
+                img_attachment.add_header('Content-Type', 'image/png')
+                msg.attach(img_attachment)
+
     try:
         with smtplib.SMTP(host='smtp.gmail.com', port=587) as smtp:     
             smtp.ehlo()
             smtp.starttls() 
             smtp.login(sender_email, sender_password)
             smtp.send_message(msg)
-            logger.info(f"Email sent with CSV attachment to {email_recipients}")
+            logger.info(f"Email sent with CSV and image attachments to {email_recipients}")
     except Exception as e:
         logger.error(f"An error occurred while sending the email: {e}")
         raise
@@ -50,18 +75,26 @@ def send_email(filename, sender_email, sender_password, email_recipients):
 # Define the DAG
 with DAG('stock_recommendation',
     description='Stock recommendation DAG using FinViz data',
-    schedule_interval='0 16 * * *',  # Run at 4 PM daily (16:00)
+    schedule_interval='0 13 * * *',  # Run at 4 PM daily (16:00 israel time)
     start_date=datetime(2024, 1, 1),
     catchup=False) as dag:
 
+
+    clean_directories_task = PythonOperator(
+        task_id='clean_directories_task',
+        python_callable=clean_directories,
+        op_kwargs={
+            'directories': ['assets/images', 'assets/output']
+        }
+    )
 
     create_stock_list_task = PythonOperator(
         task_id='create_stock_list_task',
         python_callable=create_stock_list,
         op_kwargs={
-            'patterns': ['ta_p_channel'], # , 'ta_p_channelup', 'ta_p_channeldown'],
+            'patterns': ['ta_p_channel', 'ta_p_channelup', 'ta_p_channeldown'],
             'market_cap': 'large',
-            'manual_tickers': ['AMZN'], # , 'GOOGL', 'MSFT', 'AMZN', 'TSLA', 'NVDA', 'JPM', 'V', 'JNJ', 'WMT', 'PG', 'DIS', 'NFLX', 'ADBE', 'SPY', 'QQQ', 'XOM', 'TLT', 'GLD', 'META', 'AMD', 'COIN', 'MARA', 'MU', 'SBUX', 'DVN', 'PLTR'],
+            'manual_tickers': ['AMZN', 'GOOGL', 'MSFT', 'NVDA', 'TSLA', 'JPM', 'V', 'JNJ', 'WMT', 'PG', 'DIS', 'NFLX', 'ADBE', 'SPY', 'QQQ', 'XOM', 'TLT', 'GLD', 'META', 'AMD', 'COIN', 'MARA', 'MU', 'SBUX', 'DVN', 'PLTR'],
             'filename': 'assets/stocks_list.csv'
         }
     )
@@ -115,15 +148,32 @@ with DAG('stock_recommendation',
         }
     )
 
+    filter_to_relevant_stocks_task = PythonOperator(
+        task_id='filter_to_relevant_stocks_task',
+        python_callable=filter_to_relevant_stocks,
+        op_kwargs={
+            'filename': 'assets/stocks_list.csv'
+        }
+    )
+
+    create_graphs_task = PythonOperator(
+        task_id='create_graphs_task',
+        python_callable=create_graphs,
+        op_kwargs={
+            'filename': 'assets/stocks_list_filter.csv',
+            'image_folder': 'assets/output'
+        }
+    )
+
     send_email_task = PythonOperator(
         task_id='send_email_task',
         python_callable=send_email,
         op_kwargs={
-            'filename': 'assets/stocks_list.csv',
+            'filename': 'assets/stocks_list_filter.csv',
             'sender_email': 'safe.trade.byai@gmail.com',
             'sender_password': 'qrix vafb obge ezbu',
             'email_recipients': ['noam.konja@gmail.com']
         }
     )
 
-create_stock_list_task >> capture_finviz_graphs_task >> extract_finviz_avg_support_line_value_task >> extract_finviz_avg_resistance_line_value_task >> calculate_metrics_task >> calculate_backtest_strategy_task >> send_email_task
+clean_directories_task >> create_stock_list_task >> capture_finviz_graphs_task >> extract_finviz_avg_support_line_value_task >> extract_finviz_avg_resistance_line_value_task >> calculate_metrics_task >> calculate_backtest_strategy_task >> filter_to_relevant_stocks_task >> create_graphs_task >> send_email_task

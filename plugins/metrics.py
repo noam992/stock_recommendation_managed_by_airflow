@@ -20,6 +20,24 @@ def save_to_csv(df, filename):
     logging.info(f"Data saved to {filename}")
 
 
+def filter_to_relevant_stocks(filename: str):
+    stocks_df = read_stocks_from_csv(filename)
+
+    filtered_stocks_df = stocks_df[
+        (stocks_df['channel_range'] >= 5) & 
+        (
+            (stocks_df['current_price_ratio_channel'] * 100 <= 20) & (stocks_df['current_price_ratio_channel'] * 100 >= -10) | 
+            (stocks_df['current_price_ratio_support'] * 100 <= 2) & (stocks_df['current_price_ratio_support'] * 100 >= -1)
+        )
+    ]
+
+    # Create new filename by adding _filter before extension
+    filename_parts = filename.rsplit('.', 1)
+    new_filename = f"{filename_parts[0]}_filter.{filename_parts[1]}"
+    
+    save_to_csv(filtered_stocks_df, new_filename)
+
+
 def channel_range(lower_bound: float, upper_bound: float):
     if lower_bound > upper_bound:
         raise ValueError("Lower bound is greater than upper bound")
@@ -88,3 +106,8 @@ def main(filename: str):
         logging.info(f"Channel Range: {channel_range_value}, Price Ratio: {price_ratio}, Distance to Support: {lower_bound_distance:.2f}%")
     
     save_to_csv(stocks_df, filename)
+
+
+# if __name__ == "__main__":
+#     filter_to_relevant_stocks('assets/stocks_list.csv')
+
