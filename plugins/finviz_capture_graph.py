@@ -113,7 +113,7 @@ def save_chart_img(driver, ticker, image_folder: str, scroll_amount: int):
 
         chart_image = screenshot.crop((left, top, right, bottom))
 
-        img_path = f"{image_folder}/{ticker}_chart.png"
+        img_path = f"{image_folder}/{ticker}_original_img.png"
         chart_image.save(img_path)
 
         logging.info(f"Successfully saved chart image for {ticker}")
