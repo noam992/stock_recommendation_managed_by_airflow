@@ -44,8 +44,8 @@ def convert_value(value):
 
 
 def get_background_image(ticker: str) -> Union[Image.Image, None]:
-    """Try to load the background chart image for a ticker"""
-    image_path = f"assets/images/{ticker}_chart.png"
+    """Try to load the background original image for a ticker"""
+    image_path = f"assets/images/{ticker}_original_img.png"
     try:
         if os.path.exists(image_path):
             return Image.open(image_path)
@@ -227,7 +227,7 @@ def create_graph_from_single_ticker(row):
     plt.figtext(0.02, 0.940, f"Quarterly report: {earnings_value}",
                 ha='left', va='top', fontsize=10)
 
-    plt.savefig(f"assets/output/{row['Ticker']}_analysis.png", bbox_inches='tight', dpi=300)
+    plt.savefig(f"assets/output/{row['Ticker']}_chart.png", bbox_inches='tight', dpi=300)
     plt.close()
 
 

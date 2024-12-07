@@ -107,6 +107,58 @@ def calculate_single_backtest_strategy(symbol, start_date, end_date):
     return recommendation
 
 
+def calculate_geometric_average(prices):
+    """Calculate geometric average of prices"""
+    if len(prices) == 0:
+        return 0
+    product = 1
+    for price in prices:
+        product *= price
+    return product ** (1/len(prices))
+
+def count_rising_trades_with_geometric(data, window_size, threshold_percent):
+    """
+    Count rising trades using geometric average of window prices
+    
+    Parameters:
+    data: DataFrame with Date index and Close prices
+    window_size: size of the rolling window for trend detection
+    threshold_percent: threshold for requiring minimum rise (default 0.5%)
+    """
+    df = data.copy()
+    df['counter'] = 0
+    current_count = 0
+    window_prices = []
+    prev_avg = None
+    
+    for i in range(len(df)):
+        current_price = df['Close'].iloc[i]
+        window_prices.append(current_price)
+        
+        if len(window_prices) > window_size:
+            window_prices.pop(0)
+            
+        if len(window_prices) == window_size:
+            current_avg = calculate_geometric_average(window_prices)
+            
+            if prev_avg is not None:
+                price_change_percent = ((current_avg - prev_avg) / prev_avg) * 100
+                
+                if price_change_percent > threshold_percent:  # Must be rising by more than threshold
+                    if df['counter'].iloc[i-1] == 0:
+                        current_count += 1
+                    df.iloc[i, df.columns.get_loc('counter')] = current_count
+                else:  # Not rising enough or declining
+                    df.iloc[i, df.columns.get_loc('counter')] = 0
+            
+            prev_avg = current_avg
+        else:
+            if i > 0:
+                df.iloc[i, df.columns.get_loc('counter')] = df['counter'].iloc[i-1]
+    
+    return df
+
+
 def main(filename: str):
 
     end_date = datetime.now()
@@ -140,8 +192,22 @@ def main(filename: str):
 
 # if __name__ == "__main__":
 #     end_date = datetime.now()
-#     start_date = end_date - timedelta(days=365)
-#     symbol = 'NVDA'
+#     start_date = end_date - timedelta(days=120)
+#     symbol = 'LEA'
     
 #     recommendation = calculate_single_backtest_strategy(symbol, start_date, end_date)
-#     print('Symbol:', recommendation['symbol'])
+    
+#     # Create DataFrame with date and close price
+#     trade_data = pd.DataFrame({
+#         'Date': recommendation['data'].index,
+#         'Close': recommendation['data']['Close']
+#     })
+#     trade_data.set_index('Date', inplace=True)
+
+#     # Count rising trades using geometric average
+#     result_df = count_rising_trades_with_geometric(trade_data, window_size=5, threshold_percent=0.5)
+    
+#     # Save results
+#     output_filename = f'{symbol}_rising_trades_geometric.csv'
+#     result_df.to_csv(output_filename)
+#     print(f'Rising trades analysis saved to {output_filename}')

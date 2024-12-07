@@ -822,7 +822,7 @@ def extract_single_finviz_avg_line_values(ticker_name: str, ticker_price: float,
                     logging.info(f"Invalid number found in image: {num}")
                     continue
 
-        delete_all_the_images(image_folder, img_endings=['_chart.png'])
+        delete_all_the_images(image_folder, img_endings=['_original_img.png'])
 
         if len(color_numbers) > 0:
             logging.info(f"{line_name}: {color_numbers}")

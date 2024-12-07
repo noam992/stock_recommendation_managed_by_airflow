@@ -148,20 +148,25 @@ def main(patterns: List[str], market_cap: str, manual_tickers: List[str], filena
     objects = 0
     
     # Initialize an empty DataFrame with the required columns
-    combined_df = pd.DataFrame(columns=['Ticker', 'pattern'])
+    combined_df = pd.DataFrame(columns=['date', 'Ticker', 'pattern'])
+    
+    # Get current timestamp with hours and minutes
+    current_date = pd.Timestamp.now().strftime('%Y-%m-%d %H:%M')
     
     # Get stocks for each pattern
     for pattern in patterns:
         stocks_df_full = get_stocks_list_by_pattern(screener_url, pattern, page_size, objects, filename)
-        stocks_df = filter_by_market_cap(stocks_df_full, market_cap) # large: cap stocks >= 10B, medium: cap stocks >= 2B and < 10B, small: cap stocks < 2B
-        # Add pattern column
+        stocks_df = filter_by_market_cap(stocks_df_full, market_cap)
+        # Add pattern column and date column
         stocks_df['pattern'] = pattern
+        stocks_df['date'] = current_date
         # Concatenate while dropping duplicates based on Ticker
         combined_df = pd.concat([combined_df, stocks_df]).drop_duplicates(subset=['Ticker'], keep='first')
     
     # Add manual tickers if they don't exist
     manual_df = pd.DataFrame({'Ticker': manual_tickers})
     manual_df['pattern'] = 'manual'
+    manual_df['date'] = current_date
     
     # Only add manual tickers that don't already exist if combined_df is not empty
     if not combined_df.empty:
@@ -169,7 +174,7 @@ def main(patterns: List[str], market_cap: str, manual_tickers: List[str], filena
     
     # Combine with manual tickers
     final_df = pd.concat([combined_df, manual_df], ignore_index=True)
-    ticker_pattern_df = final_df[['Ticker', 'pattern']]
+    ticker_pattern_df = final_df[['date', 'Ticker', 'pattern']]
     
     save_to_csv(ticker_pattern_df, filename)
 
