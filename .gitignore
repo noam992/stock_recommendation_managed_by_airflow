@@ -2,5 +2,6 @@
 venv/
 assets/
 logs/
-__pycache__/
+dags/__pycache__/
+plugins/__pycache__/
 *.py[cod]
