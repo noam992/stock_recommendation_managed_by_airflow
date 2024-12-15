@@ -23,6 +23,7 @@ from plugins.metrics import main as calculate_metrics, calculate_single_stock_me
 from plugins.backtesting_analysis import main as calculate_backtest_strategy, calculate_single_backtest_strategy
 from plugins.graphs import main as create_graphs
 from plugins.google_services import main as upload_files_to_drive
+from plugins.past_trend_analyzer import main as calculate_past_trends
 
 
 def clean_directories(directories):
@@ -149,6 +150,14 @@ with DAG('stock_recommendation',
         }
     )
 
+    calculate_past_trends_task = PythonOperator(
+        task_id='calculate_past_trends_task',
+        python_callable=calculate_past_trends,
+        op_kwargs={
+            'filename': 'assets/stocks_list.csv'
+        }
+    )
+
     filter_to_relevant_stocks_task = PythonOperator(
         task_id='filter_to_relevant_stocks_task',
         python_callable=filter_to_relevant_stocks,
@@ -200,4 +209,6 @@ with DAG('stock_recommendation',
         }
     )
 
-clean_directories_task >> create_stock_list_task >> capture_finviz_graphs_task >> extract_finviz_avg_support_line_value_task >> extract_finviz_avg_resistance_line_value_task >> calculate_metrics_task >> calculate_backtest_strategy_task >> filter_to_relevant_stocks_task >> create_graphs_task >> upload_csv_to_drive_task >> upload_images_to_drive_task >> send_email_task
+
+clean_directories_task >> create_stock_list_task >> capture_finviz_graphs_task >> extract_finviz_avg_support_line_value_task >> extract_finviz_avg_resistance_line_value_task >> calculate_metrics_task >> calculate_backtest_strategy_task >> calculate_past_trends_task >> filter_to_relevant_stocks_task >> create_graphs_task >> upload_csv_to_drive_task >> upload_images_to_drive_task >> send_email_task
+
