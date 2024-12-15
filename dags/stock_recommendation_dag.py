@@ -176,27 +176,27 @@ with DAG('stock_recommendation',
     )
 
 
-    # upload_csv_to_drive_task = PythonOperator(
-    #     task_id='upload_csv_to_drive_task',
-    #     python_callable=upload_files_to_drive,
-    #     op_kwargs={
-    #         'file_type': 'csv',
-    #         'file_dir': 'assets/stocks_list_filter.csv',
-    #         'drive_folder_id': 'https://docs.google.com/spreadsheets/d/1w1_v4Pc_joAh9ymCGri0jJVSSIg-_3NzBOpR62Mu37s/edit?gid=0#gid=0',
-    #         'credential_dir': 'assets/credentials/safe-trade-byai-1ad3bbad3477.json'
-    #     }
-    # )
+    upload_csv_to_drive_task = PythonOperator(
+        task_id='upload_csv_to_drive_task',
+        python_callable=upload_files_to_drive,
+        op_kwargs={
+            'file_type': 'csv',
+            'file_dir': 'assets/stocks_list_filter.csv',
+            'drive_folder_id': 'https://docs.google.com/spreadsheets/d/1w1_v4Pc_joAh9ymCGri0jJVSSIg-_3NzBOpR62Mu37s/edit?gid=0#gid=0',
+            'credential_dir': 'assets/credentials/safe-trade-byai-1ad3bbad3477.json'
+        }
+    )
 
-    # upload_images_to_drive_task = PythonOperator(
-    #     task_id='upload_images_to_drive_task',
-    #     python_callable=upload_files_to_drive,
-    #     op_kwargs={
-    #         'file_type': 'img',
-    #         'file_dir': 'assets/output',
-    #         'drive_folder_id': '1NyxrwJCL77pSmtyP_fIwAayt73KCIf_s',
-    #         'credential_dir': 'assets/credentials/safe-trade-byai-1ad3bbad3477.json'
-    #     }
-    # )
+    upload_images_to_drive_task = PythonOperator(
+        task_id='upload_images_to_drive_task',
+        python_callable=upload_files_to_drive,
+        op_kwargs={
+            'file_type': 'img',
+            'file_dir': 'assets/output',
+            'drive_folder_id': '1NyxrwJCL77pSmtyP_fIwAayt73KCIf_s',
+            'credential_dir': 'assets/credentials/safe-trade-byai-1ad3bbad3477.json'
+        }
+    )
 
     send_email_task = PythonOperator(
         task_id='send_email_task',
@@ -209,6 +209,6 @@ with DAG('stock_recommendation',
         }
     )
 
-clean_directories_task >> create_stock_list_task >> capture_finviz_graphs_task >> extract_finviz_avg_support_line_value_task >> extract_finviz_avg_resistance_line_value_task >> calculate_metrics_task >> calculate_backtest_strategy_task >> calculate_past_trends_task >> filter_to_relevant_stocks_task >> create_graphs_task >> send_email_task
-# clean_directories_task >> create_stock_list_task >> capture_finviz_graphs_task >> extract_finviz_avg_support_line_value_task >> extract_finviz_avg_resistance_line_value_task >> calculate_metrics_task >> calculate_backtest_strategy_task >> calculate_past_trends_task >> filter_to_relevant_stocks_task >> create_graphs_task >> upload_csv_to_drive_task >> upload_images_to_drive_task >> send_email_task
+
+clean_directories_task >> create_stock_list_task >> capture_finviz_graphs_task >> extract_finviz_avg_support_line_value_task >> extract_finviz_avg_resistance_line_value_task >> calculate_metrics_task >> calculate_backtest_strategy_task >> calculate_past_trends_task >> filter_to_relevant_stocks_task >> create_graphs_task >> upload_csv_to_drive_task >> upload_images_to_drive_task >> send_email_task
 
