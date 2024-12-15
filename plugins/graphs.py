@@ -69,12 +69,13 @@ def create_graph_from_single_ticker(row):
         background_ax.axis('off')  # Hide the axes
     
     # Continue with existing gridspec and plotting
-    gs = fig.add_gridspec(1, 4, left=0.1, right=0.9, top=0.8, bottom=0.2, wspace=0.9)
+    gs = fig.add_gridspec(1, 5, left=0.1, right=0.9, top=0.8, bottom=0.2, wspace=0.9)
     
     ax1 = fig.add_subplot(gs[0])
     ax2 = fig.add_subplot(gs[1])
     ax3 = fig.add_subplot(gs[2])
     ax4 = fig.add_subplot(gs[3])
+    ax5 = fig.add_subplot(gs[4])
     
     bar_width = 0.3
     
@@ -91,6 +92,7 @@ def create_graph_from_single_ticker(row):
     # Calculate percentages
     channel_ratio = convert_value(row['current_price_ratio_channel']) * 100
     support_ratio = convert_value(row['current_price_ratio_support']) * 100
+    potential_profit = convert_value(row["potential_profit_%"]) * 100
     
     # Determine the bottom of the bar as the minimum of support and price
     bottom_price_bar = min(drawdown_price, support)
@@ -115,8 +117,9 @@ def create_graph_from_single_ticker(row):
     # Add price tooltip with percentages
     ax1.annotate(f'Price: {price:.2f}\n'
                  f'Range: {channel_range:.2f}\n'
-                 f'%_channel: {channel_ratio:.1f}%\n'
-                 f'%_support: {support_ratio:.1f}%',
+                 f'% Potential: {potential_profit:.1f}%\n'
+                 f'% Channel: {channel_ratio:.1f}%\n'
+                 f'% Support: {support_ratio:.1f}%',
                  xy=(0, price), xytext=(10, 0),
                  textcoords='offset points',
                  ha='left', va='center',
@@ -195,8 +198,52 @@ def create_graph_from_single_ticker(row):
     ax4.set_ylim(min_sma - padding, max_sma + padding)
     ax4.set_title('SMA')
 
+    # 5. Past Trend Bar
+    last_resistance = convert_value(row['last_up_trade_resistence_price'])
+    last_support = convert_value(row['last_up_trade_support_price'])
+    current_price = convert_value(row['Price'])
+    range_value = convert_value(row['last_up_trade_range'])
+    days = convert_value(row['last_up_trade_days'])
+    avg_days = convert_value(row['last_up_trade_avg_days'])
+
+    # Find min and max for y-axis limits
+    min_value = min(last_support, current_price)
+    max_value = max(last_resistance, current_price)
+    padding = (max_value - min_value) * 0.07
+
+    # Draw the main bar up to current price
+    ax5.bar(0, current_price - last_support, bottom=last_support, width=bar_width, color='yellow')
+    ax5.bar(0, last_resistance - current_price, bottom=current_price, width=bar_width, color='lightgray', alpha=0.3)
+    
+    # Add cut lines and labels
+    values_labels = [
+        (last_resistance, f"Last Resistance:\n{row['last_up_trade_resistence_date']} - {last_resistance:.2f}"),
+        (last_support, f"Last Support:\n{row['last_up_trade_support_date']} - {last_support:.2f}"),
+    ]
+
+    # Add labels on the left side
+    for value, label in values_labels:
+        ax5.hlines(y=value, xmin=-0.25, xmax=0.25, color='gray', linestyles='--', linewidth=1)
+        ax5.text(-0.25, value, label, ha='right', va='center')
+
+    # Add current price label on the right side
+    ax5.text(0.25, current_price, f"Price: {current_price:.2f}", ha='left', va='center')
+    ax5.hlines(y=current_price, xmin=-0.25, xmax=0.25, color='gray', linestyles='--', linewidth=1)
+
+    # Add tooltip
+    ax5.annotate(f'Range: {range_value:.2f}\n'
+                 f'Days: {days:.0f}\n'
+                 f'Avg Days (all rising): {avg_days:.1f}',
+                 xy=(0, last_resistance), xytext=(10, 0),
+                 textcoords='offset points',
+                 ha='left', va='center',
+                 bbox=dict(boxstyle='round,pad=0.5', fc='yellow', alpha=0.5))
+
+    ax5.set_ylim(min_value, max_value + padding)
+    ax5.set_title('Past Trend')
+
     # Remove all axis numbers and ticks
-    for ax in [ax1, ax2, ax3, ax4]:
+    for ax in [ax1, ax2, ax3, ax4, ax5]:
         ax.set_xticks([])
         ax.set_yticks([])
         ax.spines['top'].set_visible(False)
@@ -206,9 +253,31 @@ def create_graph_from_single_ticker(row):
 
     # Add ticker name at top left
     current_datetime = datetime.now().strftime('%Y-%m-%d')
-    plt.figtext(0.02, 0.98, f"{row['Ticker']} - {current_datetime}", fontsize=20, weight='bold')
+    plt.figtext(0.02, 0.97, f"{row['Ticker']} - {current_datetime}", fontsize=20, weight='bold')
     
-    # Calculate backtest metrics and add them below ticker name
+    # Calculate investment metrics
+    price = convert_value(row['Price'])
+    shares = int(1000/price)  # rounddown by using int()
+    total_investment = price * shares
+    potential_profit_pct = convert_value(row['potential_profit_%'])
+    future_portfolio = total_investment * (1 + potential_profit_pct)
+    profit = future_portfolio - total_investment
+    days_to_hold = int(convert_value(row['last_up_trade_days']))
+    target_date = (datetime.now() + pd.Timedelta(days=days_to_hold)).strftime('%Y-%m-%d')
+
+    # Add investment projection text
+    investment_projection = (
+        f"Entry now with 1000$, buy {shares} shares "
+        f"(Total: ${total_investment:.2f}), based on past trend, "
+        f"you will hold portfolio of ${future_portfolio:.2f} "
+        f"(Earning: ${profit:.2f}) until {target_date} "
+        f"({days_to_hold} trading days from today)"
+    )
+
+    plt.figtext(0.02, 0.96, investment_projection, 
+                ha='left', va='top', fontsize=10)
+
+    # Calculate backtest metrics and add them below
     historical_metrics = (
         f"Backtest (365d), " +
         f"Entry: $1000 | " +
@@ -219,12 +288,12 @@ def create_graph_from_single_ticker(row):
     )
     
     # Add metrics text at left side, below ticker
-    plt.figtext(0.02, 0.965, historical_metrics, 
+    plt.figtext(0.02, 0.935, historical_metrics, 
                 ha='left', va='top', fontsize=10)
     
     # Add Earnings value on next line
     earnings_value = row['Earnings']
-    plt.figtext(0.02, 0.940, f"Quarterly report: {earnings_value}",
+    plt.figtext(0.02, 0.91, f"Quarterly report: {earnings_value}",
                 ha='left', va='top', fontsize=10)
 
     plt.savefig(f"assets/output/{row['Ticker']}_chart.png", bbox_inches='tight', dpi=300)
@@ -251,4 +320,4 @@ def main(filename: str, image_folder: str):
         logging.error(f"Error in main function: {str(e)}")
 
 # if __name__ == "__main__":
-#     main(filename='assets/stocks_list_filter.csv', image_folder='assets/output')
+#     main(filename='../assets/stocks_list_filter.csv', image_folder='../assets/output')
