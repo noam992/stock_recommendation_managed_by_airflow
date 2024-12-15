@@ -94,9 +94,9 @@ with DAG('stock_recommendation',
         task_id='create_stock_list_task',
         python_callable=create_stock_list,
         op_kwargs={
-            'patterns': [], # ['ta_p_channel', 'ta_p_channelup', 'ta_p_channeldown'],
+            'patterns': ['ta_p_channel', 'ta_p_channelup', 'ta_p_channeldown'],
             'market_cap': 'large',
-            'manual_tickers': ["ON"], # ['AMZN', 'GOOGL', 'MSFT', 'NVDA', 'TSLA', 'JPM', 'V', 'JNJ', 'WMT', 'PG', 'DIS', 'NFLX', 'ADBE', 'SPY', 'QQQ', 'XOM', 'TLT', 'GLD', 'META', 'AMD', 'COIN', 'MARA', 'MU', 'SBUX', 'DVN', 'PLTR'],
+            'manual_tickers': ['AMZN', 'GOOGL', 'MSFT', 'NVDA', 'TSLA', 'JPM', 'V', 'JNJ', 'WMT', 'PG', 'DIS', 'NFLX', 'ADBE', 'SPY', 'QQQ', 'XOM', 'TLT', 'GLD', 'META', 'AMD', 'COIN', 'MARA', 'MU', 'SBUX', 'DVN', 'PLTR'],
             'filename': 'assets/stocks_list.csv'
         }
     )
