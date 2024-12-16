@@ -165,10 +165,6 @@ def main(filename: str):
     start_date = end_date - timedelta(days=365)
 
     stocks_df = read_stocks_from_csv(filename)
-    min_gap = float(stocks_df['channel_range'])
-    if min_gap is None:
-        logging.error("No channel_range found in input file")
-        return
         
     stocks_df['last_up_trade_resistence_date'] = pd.Series(dtype='object')
     stocks_df['last_up_trade_resistence_price'] = pd.Series(dtype='float64')
@@ -180,6 +176,7 @@ def main(filename: str):
 
     for index, row in stocks_df.iterrows():
         symbol = row['Ticker']
+        min_gap = float(row['channel_range'])
         analysis_response = calculate_single_previous_rising_trade_stock(symbol, start_date, end_date, min_gap=min_gap)
         
         if analysis_response:
@@ -192,34 +189,35 @@ def main(filename: str):
 
 
 # if __name__ == "__main__":
-#     symbol = 'ON'
-#     end_date = datetime.now()
-#     start_date = end_date - timedelta(days=365)
+#     main('../assets/stocks_list.csv')
+    # symbol = 'ON'
+    # end_date = datetime.now()
+    # start_date = end_date - timedelta(days=365)
 
-#     # Get stock data and create DataFrame
-#     stock_data = get_stock_data(symbol, start_date, end_date)
-#     stocks_df = read_stocks_from_csv('../assets/stocks_list.csv')
-#     min_gap = float(stocks_df['channel_range'])
-#     if min_gap is None:
-#         logging.error("No channel_range found in input file")
+    # # Get stock data and create DataFrame
+    # stock_data = get_stock_data(symbol, start_date, end_date)
+    # stocks_df = read_stocks_from_csv('../assets/stocks_list.csv')
+    # min_gap = float(stocks_df['channel_range'])
+    # if min_gap is None:
+    #     logging.error("No channel_range found in input file")
 
-#     print(min_gap)
-#     stocks_df['last_up_trade_resistence_date'] = pd.Series(dtype='object')
-#     stocks_df['last_up_trade_resistence_price'] = pd.Series(dtype='float64')
-#     stocks_df['last_up_trade_support_date'] = pd.Series(dtype='object')
-#     stocks_df['last_up_trade_support_price'] = pd.Series(dtype='float64')
-#     stocks_df['last_up_trade_range'] = pd.Series(dtype='float64')
-#     stocks_df['last_up_trade_days'] = pd.Series(dtype='float64')
-#     stocks_df['last_up_trade_avg_days'] = pd.Series(dtype='float64')
+    # print(min_gap)
+    # stocks_df['last_up_trade_resistence_date'] = pd.Series(dtype='object')
+    # stocks_df['last_up_trade_resistence_price'] = pd.Series(dtype='float64')
+    # stocks_df['last_up_trade_support_date'] = pd.Series(dtype='object')
+    # stocks_df['last_up_trade_support_price'] = pd.Series(dtype='float64')
+    # stocks_df['last_up_trade_range'] = pd.Series(dtype='float64')
+    # stocks_df['last_up_trade_days'] = pd.Series(dtype='float64')
+    # stocks_df['last_up_trade_avg_days'] = pd.Series(dtype='float64')
 
-#     analysis_response = calculate_single_previous_rising_trade_stock(symbol, start_date, end_date, min_gap)
+    # analysis_response = calculate_single_previous_rising_trade_stock(symbol, start_date, end_date, min_gap)
         
-#     if analysis_response:
-#         for col in ['last_up_trade_resistence_date', 'last_up_trade_resistence_price',
-#                     'last_up_trade_support_date', 'last_up_trade_support_price',
-#                     'last_up_trade_range', 'last_up_trade_days', 'last_up_trade_avg_days']:
-#             stocks_df.loc[0, col] = analysis_response[col]
+    # if analysis_response:
+    #     for col in ['last_up_trade_resistence_date', 'last_up_trade_resistence_price',
+    #                 'last_up_trade_support_date', 'last_up_trade_support_price',
+    #                 'last_up_trade_range', 'last_up_trade_days', 'last_up_trade_avg_days']:
+    #         stocks_df.loc[0, col] = analysis_response[col]
             
-#     save_to_csv(stocks_df, '../assets/stocks_list.csv')
-#     print("\nAnalysis Results:")
-#     print(stocks_df)
+    # save_to_csv(stocks_df, '../assets/stocks_list.csv')
+    # print("\nAnalysis Results:")
+    # print(stocks_df)
