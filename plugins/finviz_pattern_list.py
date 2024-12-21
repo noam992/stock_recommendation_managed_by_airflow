@@ -150,8 +150,8 @@ def main(patterns: List[str], market_cap: str, manual_tickers: List[str], filena
     # Initialize an empty DataFrame with the required columns
     combined_df = pd.DataFrame(columns=['date', 'Ticker', 'pattern'])
     
-    # Get current timestamp with hours and minutes
-    current_date = pd.Timestamp.now().strftime('%Y-%m-%d %H:%M')
+    # Get current timestamp in Israel time (UTC+3) minus 15 minutes
+    current_date = (pd.Timestamp.now(tz='Asia/Jerusalem') - pd.Timedelta(minutes=15)).strftime('%Y-%m-%d %H:%M')
     
     # Get stocks for each pattern
     for pattern in patterns:
@@ -181,6 +181,7 @@ def main(patterns: List[str], market_cap: str, manual_tickers: List[str], filena
 
 
 # if __name__ == "__main__":
+
 #     screener_url = 'https://finviz.com/screener.ashx?v=110&s='
 #     page_size = 20
 #     objects = 0

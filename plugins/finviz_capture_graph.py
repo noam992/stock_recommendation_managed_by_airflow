@@ -231,7 +231,6 @@ def capture_single_finviz_graph(ticker: str, image_folder: str):
 
 def main(filename: str, image_folder: str):
     try:
-
         if not os.path.exists(image_folder):
             os.makedirs(image_folder)
 
@@ -245,6 +244,8 @@ def main(filename: str, image_folder: str):
 
         for index, row in stocks_df.iterrows():
             ticker_name = row['Ticker']
+            current_date = (pd.Timestamp.now(tz='Asia/Jerusalem') - pd.Timedelta(minutes=15)).strftime('%Y-%m-%d %H:%M')
+            stocks_df.at[index, 'date'] = current_date
             graph_img_path, stock_info_df = capture_single_finviz_graph(ticker=ticker_name, image_folder=image_folder)
             
             if not graph_img_path:
