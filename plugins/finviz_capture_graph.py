@@ -269,5 +269,5 @@ def main(filename: str, image_folder: str):
 
 
 # if __name__ == "__main__":
-#     result = capture_single_finviz_graph(image_folder = 'assets/images', ticker_name = 'BP')
+#     result = capture_single_finviz_graph(ticker = 'META', image_folder = 'assets/images')
 #     print(result)

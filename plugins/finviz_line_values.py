@@ -751,6 +751,52 @@ def extract_single_finviz_avg_line_values(ticker_name: str, ticker_price: float,
                 covered_line_rgb=covered_line_rgb,
                 detect_minLineLength=50
             )
+        elif pattern in ['ta_p_doubletop', 'ta_p_multipletop']:
+            if line_name == 'resistance':  # Resistance line (purple)
+                img_path, img, lines_found = detect_straight_line_by_color(
+                    ticker=ticker_name,
+                    img_path=original_img_path,
+                    color_rgb=color_rgb,
+                    line_frame=60,
+                    covered_line_rgb=covered_line_rgb,
+                    detect_minLineLength=50
+                )
+            elif line_name == 'support':  # Support line (blue)
+                # Scan from bottom-right for support
+                img_path, img, lines_found = detect_rising_top_right_falling_bottom_right_line_by_color(
+                    ticker=ticker_name,
+                    img_path=original_img_path,
+                    color_rgb=color_rgb,
+                    line_frame=80,
+                    covered_line_rgb=covered_line_rgb,
+                    detect_minLineLength=20
+                )
+            else:
+                logging.warning(f"Unexpected color RGB {color_rgb} for ta_p_doubletop or ta_p_multipletop pattern")
+                return float('nan')
+        elif pattern in ['ta_p_doublebottom', 'ta_p_multiplebottom']:
+            if line_name == 'resistance':  # Resistance line (purple)
+                img_path, img, lines_found = detect_rising_top_right_falling_bottom_right_line_by_color(
+                    ticker=ticker_name,
+                    img_path=original_img_path,
+                    color_rgb=color_rgb,
+                    line_frame=80,
+                    covered_line_rgb=covered_line_rgb,
+                    detect_minLineLength=20
+                )
+            elif line_name == 'support':  # Support line (blue)
+                # Scan from bottom-right for support
+                img_path, img, lines_found = detect_straight_line_by_color(
+                    ticker=ticker_name,
+                    img_path=original_img_path,
+                    color_rgb=color_rgb,
+                    line_frame=60,
+                    covered_line_rgb=covered_line_rgb,
+                    detect_minLineLength=50
+                )
+            else:
+                logging.warning(f"Unexpected color RGB {color_rgb} for ta_p_doublebottom or ta_p_multiplebottom pattern")
+                return float('nan')        
         else: # manual
             img_path, img, lines_found = detect_rising_top_right_falling_bottom_right_line_by_color(
                 ticker=ticker_name,
@@ -868,11 +914,11 @@ def main(filename: str, image_folder: str, line_name: str, color_rgb: tuple, cov
 # if __name__ == "__main__":
 #     ticker_name = 'AMZN'
 #     ticker_price = 208.91
-#     pattern = 'manual'
-#     original_img_path = 'assets/images/AMZN_chart.png'
+#     pattern = 'ta_p_doublebottom'
+#     original_img_path = 'assets/images/PBR-A_original_img.png'
 #     image_folder = 'assets/images'
-#     line_name = 'support'
-#     color_rgb = (37, 111, 149)
+#     line_name = 'support' # 'resistance'
+#     color_rgb = (37, 111, 149) # (142, 73, 156)
 #     covered_line_rgb = (0, 165, 255)
     
 #     extract_single_finviz_avg_line_values(ticker_name, ticker_price, pattern, original_img_path, image_folder, line_name, color_rgb, covered_line_rgb)
