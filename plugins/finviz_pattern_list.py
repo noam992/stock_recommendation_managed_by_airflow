@@ -150,7 +150,7 @@ def main(patterns: List[str], market_cap: str, manual_tickers: List[str], filena
     # Initialize an empty DataFrame with the required columns
     combined_df = pd.DataFrame(columns=['date', 'Ticker', 'pattern'])
     
-    # Get current timestamp in Israel time (UTC+3/+2) minus 15 minutes
+    # Get current timestamp in Israel time (UTC+3 / UTC+2) minus 15 minutes
     current_date = (pd.Timestamp.now(tz='Asia/Jerusalem') - pd.Timedelta(minutes=15)).strftime('%Y-%m-%d %H:%M')
     
     # Get stocks for each pattern
